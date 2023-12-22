@@ -20,39 +20,60 @@ app.use(express.static("public"));
 
 app.get("/", async (req, res) => {
   try {
-    const result = await getColumn('country_iso','countries_visited');
+    res.render('index.ejs', await fetchAndFormResponseObject())
+  } catch (error) {
+    console.log(error)
+  }
+});
 
+app.post('/add', async (req, res) => {
+  let result;
+  try {
+    result = await searchISO(req.body.country)
+    res.redirect('/');
+  } catch (error) {
+    let notExistError = 'Country does not exist. Please try again.'
+    // console.log(notExistError, '-----from line 34');
+    res.render('index.ejs', await fetchAndFormResponseObject(notExistError))
+  }
+  
+  try {
+    await insertISO(result.rows[0].country_iso);
+    res.redirect('/');
+  } catch (error) {
+    let noDuplicateError = 'Country already entered. Please enter a unique country'
+    console.log(noDuplicateError, '-----from line 44')
+    res.render('index.ejs', await fetchAndFormResponseObject(noDuplicateError))
+  }
+})
+
+async function fetchAndFormResponseObject(err = null) {
+
+  const result = await getColumn('country_iso', 'countries_visited');
+  try {
     const resp = {
       countries: result.rows.map(country => country.country_iso),
       total: result.rows.length
     }
-    res.render('index.ejs', resp)
+
+    if (err !== null) resp.error = err;
+
+    console.log(resp, '----from line 60');
+    return resp
 
   } catch (error) {
-    console.log(error)
+    console.log(error, '-----from line 64')
   }
+}
 
-});
-
-app.post('/add', async (req, res) => {
-  try {
-    const result = await searchISO(req.body.country)
-    console.log(result.rows)
-    await insertISO(result.rows[0].country_code);
-
-    res.send();
-  } catch (error) {
-    console.log(error);
-    res.sendStatus(400);
-  }
-})
 
 async function searchISO(country) {
   try {
-    const result = await db.query(`select country_code from countries where country_name='${country}'`);
+    const result = await db.query(`select country_iso from countries where country_name='${country}'`);
     return result
   } catch (error) {
-    console.log('hi')
+    // console.log(error, '------from line 74')
+    throw new Error('no such country exist')
   }
 }
 
@@ -60,7 +81,8 @@ async function insertISO(iso) {
   try {
     await db.query(`insert into countries_visited (country_iso) values ($1)`, [iso])
   } catch (error) {
-    console.log('hi');
+    // console.log(error, '-------from line 82');
+    return error.detail
   }
 }
 
@@ -75,5 +97,5 @@ async function getColumn(column, table) {
 }
 
 app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+  console.log(`------Server running on http://localhost:${port}-----------`);
 });
