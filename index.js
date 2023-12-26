@@ -27,14 +27,15 @@ app.get("/", async (req, res) => {
 });
 
 app.post('/add', async (req, res) => {
-  let result;
   try {
-    result = await searchISO(req.body.country)
+    let result = await searchISO(req.body.country)
     if (result) {
       try {
-        await insertISO(result.rows[0].country_iso);
+        await insertISO(result);
+        console.log('in here')
         res.redirect('/');
       } catch (error) {
+        console.log(error)
         let noDuplicateError = 'Country already entered. Please enter a unique country'
         console.log(noDuplicateError, '-----from line 44')
         res.render('index.ejs', await fetchAndFormResponseObject(noDuplicateError))
@@ -58,7 +59,7 @@ async function fetchAndFormResponseObject(err = null) {
       total: result.rows.length
     }
 
-    console.log(resp, '----from line 60');
+    // console.log(resp, '----from line 60');
     return resp
 
   } catch (error) {
@@ -69,8 +70,9 @@ async function fetchAndFormResponseObject(err = null) {
 
 async function searchISO(country) {
   try {
-    const result = await db.query(`select country_iso from countries where country_name='${country}'`);
-    return result
+    const result = await db.query(`select country_code from countries where country_name='${country}'`);
+
+    return result.rows[0].country_code
   } catch (error) {
     // console.log(error, '------from line 74')
     throw new Error('no such country exist')
@@ -79,9 +81,10 @@ async function searchISO(country) {
 
 async function insertISO(iso) {
   try {
-    await db.query(`insert into countries_visited (country_iso) values ($1)`, [iso])
+    let r = await db.query(`insert into countries_visited (country_iso) values ($1)`, [iso])
+    console.log(r)
   } catch (error) {
-    // console.log(error, '-------from line 82');
+    console.log(error, '-------from line 82');
     return error.detail
   }
 }
