@@ -20,7 +20,9 @@ app.use(express.static("public"));
 
 app.get("/", async (req, res) => {
   try {
-    res.render('index.ejs', await fetchAndFormResponseObject())
+    const resp = await fetchAndFormResponseObject();
+    console.log(resp)
+    res.render('index.ejs', resp)
   } catch (error) {
     console.log(error)
   }
@@ -32,10 +34,8 @@ app.post('/add', async (req, res) => {
     if (result) {
       try {
         await insertISO(result);
-        console.log('in here')
         res.redirect('/');
       } catch (error) {
-        console.log(error)
         let noDuplicateError = 'Country already entered. Please enter a unique country'
         console.log(noDuplicateError, '-----from line 44')
         res.render('index.ejs', await fetchAndFormResponseObject(noDuplicateError))
@@ -43,61 +43,45 @@ app.post('/add', async (req, res) => {
     }
    
   } catch (error) {
+    console.error(error)
     let notExistError = 'Country does not exist. Please try again.'
-    // console.log(notExistError, '-----from line 34');
     res.render('index.ejs', await fetchAndFormResponseObject(notExistError))
   }
-  
-  
 })
 
-async function fetchAndFormResponseObject(err = null) {
-  const result = await getColumn('country_iso', 'countries_visited');
+async function fetchAndFormResponseObject(error=null){
   try {
-    const resp = {
-      countries: result.rows.map(country => country.country_iso),
-      total: result.rows.length
+    const resp = await db.query(`SELECT * FROM public.countries_visited`);
+    return {
+      countries: resp.rows.map(country => country.country_iso),
+      total: resp.rows.length,
+      error: error
     }
-
-    // console.log(resp, '----from line 60');
-    return resp
-
   } catch (error) {
-    console.log(error, '-----from line 64')
+
   }
 }
 
 
 async function searchISO(country) {
   try {
-    const result = await db.query(`select country_code from countries where country_name='${country}'`);
+    const result = await db.query(`select country_code from countries where LOWER(country_name) like '%' || $1 || '%'`, [country.toLowerCase()]);
 
     return result.rows[0].country_code
   } catch (error) {
-    // console.log(error, '------from line 74')
-    throw new Error('no such country exist')
+    throw 'Does not exist'
   }
 }
 
 async function insertISO(iso) {
   try {
     let r = await db.query(`insert into countries_visited (country_iso) values ($1)`, [iso])
-    console.log(r)
+    return iso
   } catch (error) {
-    console.log(error, '-------from line 82');
-    return error.detail
+    throw 'Duplicate found'
   }
 }
 
-async function get(table) {
-  const result = await db.query(`SELECT * FROM ${table}`);
-  return result;
-}
-
-async function getColumn(column, table) {
-  const result = await db.query(`SELECT ${column} FROM ${table}`);
-  return result;
-}
 
 app.listen(port, () => {
   console.log(`------Server running on http://localhost:${port}`);
