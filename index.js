@@ -30,33 +30,33 @@ app.post('/add', async (req, res) => {
   let result;
   try {
     result = await searchISO(req.body.country)
-    res.redirect('/');
+    if (result) {
+      try {
+        await insertISO(result.rows[0].country_iso);
+        res.redirect('/');
+      } catch (error) {
+        let noDuplicateError = 'Country already entered. Please enter a unique country'
+        console.log(noDuplicateError, '-----from line 44')
+        res.render('index.ejs', await fetchAndFormResponseObject(noDuplicateError))
+      }
+    }
+   
   } catch (error) {
     let notExistError = 'Country does not exist. Please try again.'
     // console.log(notExistError, '-----from line 34');
     res.render('index.ejs', await fetchAndFormResponseObject(notExistError))
   }
   
-  try {
-    await insertISO(result.rows[0].country_iso);
-    res.redirect('/');
-  } catch (error) {
-    let noDuplicateError = 'Country already entered. Please enter a unique country'
-    console.log(noDuplicateError, '-----from line 44')
-    res.render('index.ejs', await fetchAndFormResponseObject(noDuplicateError))
-  }
+  
 })
 
 async function fetchAndFormResponseObject(err = null) {
-
   const result = await getColumn('country_iso', 'countries_visited');
   try {
     const resp = {
       countries: result.rows.map(country => country.country_iso),
       total: result.rows.length
     }
-
-    if (err !== null) resp.error = err;
 
     console.log(resp, '----from line 60');
     return resp
@@ -97,5 +97,5 @@ async function getColumn(column, table) {
 }
 
 app.listen(port, () => {
-  console.log(`------Server running on http://localhost:${port}-----------`);
+  console.log(`------Server running on http://localhost:${port}`);
 });
